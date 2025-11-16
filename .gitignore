@@ -1,0 +1,22 @@
+# Object files
+*.o
+
+# Binary files
+*.bin
+*.elf
+*.dis
+
+# Temporary build folders
+boot/*.o
+boot/*.bin
+drivers/*.o
+kernel/*.o
+
+# OS image
+os-image.bin
+
+# Editor/IDE files
+*.swp
+*.swo
+.vscode/
+.idea/
