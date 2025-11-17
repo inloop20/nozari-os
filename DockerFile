@@ -1,0 +1,43 @@
+# Base image
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential curl bison flex libgmp3-dev libmpfr-dev libmpc-dev \
+    texinfo nasm qemu-system-i386 make git wget xz-utils \
+ && rm -rf /var/lib/apt/lists/*
+
+# Environment variables for cross-compiler
+ENV PREFIX=/usr/local/i386elfgcc
+ENV TARGET=i386-elf
+ENV PATH="$PREFIX/bin:$PATH"
+
+WORKDIR /tmp/src
+
+# Build and install binutils
+RUN curl -O http://ftp.gnu.org/gnu/binutils/binutils-2.45.tar.gz \
+ && tar xf binutils-2.45.tar.gz \
+ && mkdir binutils-build \
+ && cd binutils-build \
+ && ../binutils-2.45/configure --target=$TARGET --enable-interwork --enable-multilib --disable-nls --disable-werror --prefix=$PREFIX \
+ && make all install
+
+# Build and install GCC
+RUN curl -O https://ftp.gnu.org/gnu/gcc/gcc-13.3.0/gcc-13.3.0.tar.xz \
+ && tar xf gcc-13.3.0.tar.xz \
+ && mkdir gcc-build \
+ && cd gcc-build \
+ && ../gcc-13.3.0/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --disable-libssp --enable-languages=c --without-headers \
+ && make all-gcc \
+ && make all-target-libgcc \
+ && make install-gcc \
+ && make install-target-libgcc
+
+# Set project working directory
+WORKDIR /os
+COPY . /os
+
+# Default shell
+CMD ["/bin/bash"]
