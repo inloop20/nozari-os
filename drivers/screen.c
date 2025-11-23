@@ -11,11 +11,11 @@ int printc(char c, int row, int col, char attr){
     unsigned char *vga = (unsigned char *)(VIDEO_ADDRESS);
     if (!attr)
         attr = WHITE_ON_BLACK;
-    if (row >= MAX_ROWS || col >= MAX_COLS){
-        vga[2 * (MAX_COLS) * (MAX_ROWS)-2] = 'E';
-        vga[2 * (MAX_COLS) * (MAX_ROWS)-1] = RED_ON_WHITE;
-        return get_offset(col, row);
-    }
+     if (row >= MAX_ROWS || col >= MAX_COLS){
+         vga[2 * (MAX_COLS) * (MAX_ROWS)-2] = 'E';
+         vga[2 * (MAX_COLS) * (MAX_ROWS)-1] = RED_ON_WHITE;
+         return get_offset(col, row);
+     }
     int offset;
     if (col >= 0 && row >= 0)
         offset = get_offset(col, row);
@@ -30,9 +30,24 @@ int printc(char c, int row, int col, char attr){
         vga[offset + 1] = attr;
         offset += 2;
     }
+    if(get_offset_row(offset)>=25){
+       scroll();
+        offset -=2*MAX_COLS ;
+    }
     set_cursor_offset(offset);
     return offset;
 }
+
+void scroll(){
+    char* vga = (char*) VIDEO_ADDRESS;
+     for(int i=0;i<((MAX_ROWS-1)*MAX_COLS)*2;i+=2){
+           vga[i] = vga[i+MAX_COLS*2];
+           vga[i+1] = vga[i+1+MAX_COLS*2];
+        }
+       
+        for(int i=(MAX_ROWS-1)*MAX_COLS;i<MAX_ROWS*MAX_COLS;i++) vga[i*2] = ' ';
+}
+
 void kprint_at(char *message, int row, int col)
 {
     int offset;
@@ -47,7 +62,7 @@ void kprint_at(char *message, int row, int col)
         col = get_offset_col(offset);
     }
     int i = 0;
-    while (message[i] != 0)
+    while (message[i])
     {
         offset = printc(message[i++], row, col, WHITE_ON_BLACK);
         row = get_offset_row(offset);
