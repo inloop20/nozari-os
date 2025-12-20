@@ -1,46 +1,16 @@
-#include "idt.c";
-#include "./kernel/kernel.c";
+#include "isr.h"
+#include "idt.h"
+#include "../libc/string.h"
+#include "../drivers/screen.h"
+#include "../drivers/keyboard.h"
+#include "timer.h"
+#include "port.h"
 
-extern void isr0();
-extern void isr1();
-extern void isr2();
-extern void isr3();
-extern void isr4();
-extern void isr5();
-extern void isr6();
-extern void isr7();
-extern void isr8();
-extern void isr9();
-extern void isr10();
-extern void isr11();
-extern void isr12();
-extern void isr13();
-extern void isr14();
-extern void isr15();
-extern void isr16();
-extern void isr17();
-extern void isr18();
-extern void isr19();
-extern void isr20();
-extern void isr21();
-extern void isr22();
-extern void isr23();
-extern void isr24();
-extern void isr25();
-extern void isr26();
-extern void isr27();
-extern void isr28();
-extern void isr29();
-extern void isr30();
-extern void isr31();
+isr_t interrupt_handlers[256];
 
-typedef struct {
-     unsigned int ds, /* Data segment selector */
-    edi, esi, ebp, esp, ebx, edx, ecx, eax, /* Pushed by pusha. */
-    int_no, err_code, /* Interrupt number and error code (if applicable) */
-    eip, cs, eflags, useresp, ss; /* Pushed by the processor automatically */
-} registers_t;
-
+void register_interrupt_handler(unsigned short num, isr_t handler) {
+    interrupt_handlers[num] = handler;
+}
 
 void install_isr(){
         set_idt_entries(0,(unsigned int)isr0);
@@ -75,6 +45,44 @@ void install_isr(){
         set_idt_entries(29,(unsigned int)isr29);
         set_idt_entries(30,(unsigned int)isr30);
         set_idt_entries(31,(unsigned int)isr31);
+
+        //intializing
+        port_byte_out(0x20,0x11);
+        port_byte_out(0xA0,0x11);
+
+        //remap
+        port_byte_out(0x21,0x20);
+        port_byte_out(0xA1,0x28);
+
+        //master/slave wiring
+        port_byte_out(0x21,0x04);
+        port_byte_out(0xA1,0x02);
+
+        // Set PIC mode (ICW4)
+        port_byte_out(0x21,0x01);
+        port_byte_out(0xA1,0x01);
+
+        //Unmask all IRQ lines
+        port_byte_out(0x21,0x0);
+        port_byte_out(0xA1,0x0);
+        
+        set_idt_entries(32,(unsigned int)irq0);
+        set_idt_entries(33,(unsigned int)irq1);
+        set_idt_entries(34,(unsigned int)irq2);
+        set_idt_entries(35,(unsigned int)irq3);
+        set_idt_entries(36,(unsigned int)irq4);
+        set_idt_entries(37,(unsigned int)irq5);
+        set_idt_entries(38,(unsigned int)irq6);
+        set_idt_entries(39,(unsigned int)irq7);
+        set_idt_entries(40,(unsigned int)irq8);
+        set_idt_entries(41,(unsigned int)irq9);
+        set_idt_entries(42,(unsigned int)irq10);
+        set_idt_entries(43,(unsigned int)irq11);
+        set_idt_entries(44,(unsigned int)irq12);
+        set_idt_entries(45,(unsigned int)irq13);
+        set_idt_entries(46,(unsigned int)irq14);
+        set_idt_entries(47,(unsigned int)irq15);
+
 
         set_idt_ptr();
 }
@@ -119,20 +127,27 @@ char *exception_messages[] = {
 
 void isr_handler(registers_t r){
     kprint("recieved interrupt: ");
-    char str[3];
-      int i, sign,n=r.int_no;
-    if ((sign = n) < 0) n = -n;
-    i = 0;
-    do {
-        str[i++] = n % 10 + '0';
-    } while ((n /= 10) > 0);
-
-    if (sign < 0) str[i++] = '-';
-    str[i] = '\0';
-
+    char str[4]; 
+    itoa(r.int_no, str);
     kprint(str);
     kprint("\n");
     kprint(exception_messages[r.int_no]);
     kprint("\n");
+}
 
+void irq_handler(registers_t r){
+    if(r.int_no >=40)
+        port_byte_out(0xA0,0x20);
+    port_byte_out(0x20,0x20);
+
+    if(interrupt_handlers[r.int_no]!=0){
+        isr_t handler =  interrupt_handlers[r.int_no]; 
+        handler(r);
+    }    
+}
+
+void install_irq(){
+     asm volatile("sti");
+     init_timer(50);
+     init_keyboard();
 }

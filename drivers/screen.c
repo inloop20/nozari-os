@@ -1,11 +1,13 @@
 #include "screen.h"
-#include "port.h"
+#include "../cpu/port.h"
 
 int get_offset(int col, int row);
 int get_offset_row(int offset);
 int get_offset_col(int offset);
 void set_cursor_offset(int offset);
 int get_cursor_offset();
+void scroll();
+
 
 int printc(char c, int row, int col, char attr){
     unsigned char *vga = (unsigned char *)(VIDEO_ADDRESS);
@@ -74,19 +76,26 @@ void kprint(char *message)
     kprint_at(message, -1, -1);
 }
 
+void kprint_backspace(){
+    int offset = get_cursor_offset();
+    set_cursor_offset(offset-2);
+    kprint(" ");
+    set_cursor_offset(offset-2);
+}
+
 void set_cursor_offset(int offset)
 {
     offset /= 2;
     port_byte_out(REG_SCREEN_CTRL, 14);
     port_byte_out(REG_SCREEN_DATA, (unsigned char)(offset >> 8));
     port_byte_out(REG_SCREEN_CTRL, 15);
-    port_byte_out(REG_SCREEN_DATA, (unsigned char)(offset & 0xff));
+    port_byte_out(REG_SCREEN_DATA, (unsigned char)(offset & 0xff)); 
 }
 
 void clear_screen()
 {
     int screen_size = MAX_ROWS * MAX_COLS;
-    char *screen = VIDEO_ADDRESS;
+    char *screen =(char*) VIDEO_ADDRESS;
     for (int i = 0; i < screen_size; i++)
     {
         screen[i * 2] = ' ';
@@ -98,11 +107,10 @@ void clear_screen()
 int get_cursor_offset()
 {
     port_byte_out(REG_SCREEN_CTRL, 14);
-    int offset = port_byte_in(REG_SCREEN_DATA) << 8; /* High byte: << 8 */
+    int offset = port_byte_in(REG_SCREEN_DATA) << 8;
     port_byte_out(REG_SCREEN_CTRL, 15);
     offset += port_byte_in(REG_SCREEN_DATA);
     return offset * 2;
-    ;
 }
 
 int get_offset(int col, int row)
